@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import Enum
 
 from utils import read_file
@@ -15,15 +16,22 @@ class Shape(int, Enum):
     SCISSORS = 3
 
 
-THEIR_SHAPE = {'A': Shape.ROCK, 'B': Shape.PAPER, 'C': Shape.SCISSORS}
-MY_SHAPE = {'X': Shape.ROCK, 'Y': Shape.PAPER, 'Z': Shape.SCISSORS}
-OUTCOME = {'X': Outcome.LOSS, 'Y': Outcome.DRAW, 'Z': Outcome.WIN}
+class Round(ABC):
+    THEIR_SHAPE = {'A': Shape.ROCK, 'B': Shape.PAPER, 'C': Shape.SCISSORS}
 
+    def __init__(self, first_letter: str, second_letter: str):
+        self.their_shape = self.THEIR_SHAPE[first_letter]
+        self.second_letter = second_letter
 
-class Round:
-    def __init__(self, my_shape: Shape, outcome: Outcome):
-        self.my_shape = my_shape
-        self.outcome = outcome
+    @property
+    @abstractmethod
+    def my_shape(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def outcome(self):
+        raise NotImplementedError
 
     @property
     def points(self) -> int:
@@ -31,13 +39,14 @@ class Round:
 
 
 class RoundPt1(Round):
-    def __init__(self, first_letter: str, second_letter: str):
-        self.their_shape = THEIR_SHAPE[first_letter]
-        self.my_shape = MY_SHAPE[second_letter]
-        super().__init__(self.my_shape,
-                         self.get_outcome())
+    MY_SHAPE = {'X': Shape.ROCK, 'Y': Shape.PAPER, 'Z': Shape.SCISSORS}
 
-    def get_outcome(self):
+    @property
+    def my_shape(self):
+        return self.MY_SHAPE[self.second_letter]
+
+    @property
+    def outcome(self):
         if self.their_shape == self.my_shape:
             return Outcome.DRAW
         if self.their_shape == Shape.ROCK:
@@ -49,13 +58,10 @@ class RoundPt1(Round):
 
 
 class RoundPt2(Round):
-    def __init__(self, first_letter: str, second_letter: str):
-        self.their_shape = THEIR_SHAPE[first_letter]
-        self.outcome = OUTCOME[second_letter]
-        super().__init__(self.get_my_shape(),
-                         self.outcome)
+    OUTCOME = {'X': Outcome.LOSS, 'Y': Outcome.DRAW, 'Z': Outcome.WIN}
 
-    def get_my_shape(self):
+    @property
+    def my_shape(self):
         if self.outcome == Outcome.DRAW:
             return self.their_shape
         elif self.outcome == Outcome.WIN:
@@ -66,6 +72,10 @@ class RoundPt2(Round):
             return Shape.ROCK if self.their_shape == Shape.PAPER else \
                 Shape.PAPER if self.their_shape == Shape.SCISSORS else \
                 Shape.SCISSORS
+
+    @property
+    def outcome(self):
+        return self.OUTCOME[self.second_letter]
 
 
 if __name__ == '__main__':

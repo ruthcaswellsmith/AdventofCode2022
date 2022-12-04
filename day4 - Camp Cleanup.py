@@ -1,14 +1,10 @@
-from typing import Optional
-
 from utils import read_file
 
 
 class Assignment:
     def __init__(self, assignment: str):
-        sections = assignment.split('-')
-        self.sections = set([])
-        self.beg = int(sections[0])
-        self.end = int(sections[1])
+        sections = [int(sections) for sections in assignment.split('-')]
+        self.sections = set([i for i in range(sections[0], sections[1]+1)])
 
 
 class Pair:
@@ -24,13 +20,11 @@ class Pair:
 
     @property
     def assignments_overlap(self):
-        return self.assignment1.beg <= self.assignment2.beg <= self.assignment1.end or \
-               self.assignment1.beg <= self.assignment2.end <= self.assignment1.end or \
-               self.assignment2.beg <= self.assignment1.end <= self.assignment2.end or \
-               self.assignment2.beg <= self.assignment1.end <= self.assignment2.end
+        return len(self.assignment1.sections.intersection(self.assignment2.sections)) > 0
 
-    def __contains(self, assignment1, assignment2):
-        return assignment1.beg <= assignment2.beg and assignment1.end >= assignment2.end
+    @staticmethod
+    def __contains(assignment1, assignment2):
+        return assignment1.sections.issubset(assignment2.sections)
 
 
 if __name__ == '__main__':

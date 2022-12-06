@@ -1,14 +1,8 @@
-from enum import Enum, auto
 from itertools import groupby
 from queue import LifoQueue
 from typing import List
 
-from utils import read_file
-
-
-class Part(str, Enum):
-    PT1 = auto()
-    PT2 = auto()
+from utils import read_file, Part
 
 
 class Instruction:
@@ -59,7 +53,7 @@ class SupplyStacks:
             if part == Part.PT1:
                 for crate_num in range(instruction.num_to_move):
                     crate = self.stacks[instruction.from_stack - 1].get()
-                    self.stacks[instruction.to_stack].put(crate - 1)
+                    self.stacks[instruction.to_stack - 1].put(crate)
             else:
                 held_by_crane = LifoQueue()
                 for crate_num in range(instruction.num_to_move):

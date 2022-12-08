@@ -9,3 +9,9 @@ def read_file(file):
 class Part(str, Enum):
     PT1 = auto()
     PT2 = auto()
+
+class Direction(str, Enum):
+    EAST = auto()
+    WEST = auto()
+    NORTH = auto()
+    SOUTH = auto()

@@ -35,11 +35,11 @@ class Map:
                     np.prod([self.__get_num_trees(row, col, direction) for direction in Direction])
 
     def __get_trees(self, x, y, direction: Direction):
-        if direction == Direction.WEST:
+        if direction == Direction.LEFT:
             return np.flip(self.trees[x, 0:y])
-        elif direction == Direction.EAST:
+        elif direction == Direction.RIGHT:
             return self.trees[x, y + 1:]
-        elif direction == Direction.NORTH:
+        elif direction == Direction.UP:
             return np.flip(self.trees[0:x, y])
         else:
             return self.trees[x + 1:, y]

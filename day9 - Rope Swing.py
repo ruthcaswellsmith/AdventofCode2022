@@ -1,30 +1,9 @@
 from __future__ import annotations
-from enum import Enum, auto
-from typing import List, Tuple
+from typing import List
 
 import numpy as np
 
-from utils import read_file
-
-
-class Direction(str, Enum):
-    RIGHT = auto()
-    LEFT = auto()
-    DOWN = auto()
-    UP = auto()
-
-
-class XYPair:
-    def __init__(self, xypair: Tuple[int, int]):
-        self.x = xypair[0]
-        self.y = xypair[1]
-
-    def move(self, direction: Direction):
-        self.x += 1 if direction == Direction.RIGHT else -1 if direction == Direction.LEFT else 0
-        self.y += 1 if direction == Direction.DOWN else -1 if direction == Direction.UP else 0
-
-    def __sub__(self, other):
-        return XYPair((self.x - other.x, self.y - other.y))
+from utils import read_file, XYPair, Direction
 
 
 class Rope:

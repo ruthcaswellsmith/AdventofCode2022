@@ -1,6 +1,7 @@
 from __future__ import annotations
 from enum import Enum, auto
 from typing import Tuple
+from functools import total_ordering
 
 
 def read_file(file):
@@ -18,6 +19,31 @@ class Direction(str, Enum):
     LEFT = auto()
     UP = auto()
     DOWN = auto()
+
+
+@total_ordering
+class EnhancedRange:
+    def __init__(self, r: range):
+        self.r = r
+
+    def contains(self, other):
+        return True if self.r[0] <= other.r[0] and self.r[-1] >= other.r[-1] else False
+
+    def overlaps(self, other):
+        rs = [self.r, other.r]
+        rs.sort(key=lambda r: r[0])
+        return True if rs[0][-1] >= rs[1][0] else False
+
+    def combine(self, other):
+        if not self.overlaps(other):
+            raise ValueError('ranges do not overlap')
+        return EnhancedRange(range(min([self.r[0], other.r[0]]), max([self.r[-1]+1, other.r[-1]+1])))
+
+    def __lt__(self, other):
+        return True if self.r[0] < other.r[0] or self.r[0] == other.r[0] and self.r[-1] < other.r[-1] else False
+
+    def __eq__(self, other):
+        return self.r[0] == other.r[0] and self.r[-1] == other.r[-1]
 
 
 class XYPair:
@@ -38,6 +64,9 @@ class XYPair:
         self.x = self.y
         self.y = temp
         return self
+
+    def manhattan(self, other):
+        return abs(self.x - other.x) + abs(self.y - other.y)
 
     @property
     def id(self):

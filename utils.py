@@ -1,7 +1,9 @@
 from __future__ import annotations
 from enum import Enum, auto
-from typing import Tuple
+from typing import List, Tuple, TypeVar, Union
 from functools import total_ordering
+
+T = TypeVar('T')
 
 
 def read_file(file):
@@ -19,6 +21,28 @@ class Direction(str, Enum):
     LEFT = auto()
     UP = auto()
     DOWN = auto()
+
+
+class Node:
+    def __init__(self, id: int, value: T):
+        self.id = id
+        self.value = value
+        self.next = None
+
+
+class CircularLinkedList:
+    def __init__(self, elements: Union[str, List[T]]):
+        self.nodes = [Node(i, ele) for i, ele in enumerate(elements)]
+        self.head = self.nodes[0]
+        self.current = self.head
+        for i in range(len(self.nodes)):
+            self.current.next = self.nodes[i + 1] if i < len(self.nodes) - 1 else self.head
+            self.current = self.current.next
+
+    def get_next(self):
+        val = self.current.value
+        self.current = self.current.next
+        return val
 
 
 @total_ordering

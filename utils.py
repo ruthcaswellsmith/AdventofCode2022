@@ -2,8 +2,11 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import List, Tuple, TypeVar, Union
 from functools import total_ordering
+import numpy as np
+
 
 T = TypeVar('T')
+LARGE = 1_000_000
 
 
 def read_file(file):
@@ -14,6 +17,12 @@ def read_file(file):
 class Part(str, Enum):
     PT1 = auto()
     PT2 = auto()
+
+
+class Orientation(str, Enum):
+    X = 'X'
+    Y = 'Y'
+    Z = 'Z'
 
 
 class Direction(str, Enum):
@@ -124,3 +133,99 @@ class XYPair:
 
     def __eq__(self, other):
         return True if self.x == other.x and self.y == other.y else False
+
+    def __hash__(self):
+        return hash(self.x) + hash(self.y)
+
+
+class XYZ:
+    def __init__(self, xyz: Tuple[int, int, int]):
+        self.x = xyz[0]
+        self.y = xyz[1]
+        self.z = xyz[2]
+
+    @property
+    def coordinates(self):
+        return self.x, self.y, self.z
+
+    def update(self, xyz: XYZ):
+        self.x = xyz.x
+        self.y = xyz.y
+        self.z = xyz.z
+
+    @property
+    def id(self):
+        return f'{self.x}-{self.y}-{self.z}'
+
+    def __sub__(self, other):
+        return XYZ((self.x - other.x, self.y - other.y, self.z - other.z))
+
+    def __eq__(self, other):
+        return True if self.x == other.x and self.y == other.y and self.z == other.z else False
+
+    def __hash__(self):
+        return hash(self.x) + hash(self.y) + hash(self.z)
+
+    def manhattan(self, other):
+        return abs(self.x - other.x) + abs(self.y - other.y) + abs(self.z - other.z)
+
+
+class GraphNode:
+    def __init__(self, id: int, adj_list: List[int]):
+        self.id = id
+        self.adj_list = adj_list
+        self.cost = LARGE
+
+
+class Graph:
+    def __init__(self, nodes: List[GraphNode], edge_costs: np.array):
+        self.nodes = nodes
+        self.edge_costs = edge_costs
+        self.shortest_paths = edge_costs.copy()
+        self.current_cost = 0
+        self.visited = List[GraphNode]
+
+    @property
+    def num_nodes(self):
+        return len(self.nodes)
+
+    @property
+    def unvisited_nodes(self):
+        unvisited = [n for n in self.nodes if n not in self.visited]
+        unvisited.sort(key=lambda n: n.cost)
+        return unvisited
+
+    def get_node(self, id: int):
+        return next(iter(n for n in self.nodes if n.id == id))
+
+    def find_all_shortest_paths(self):
+        for n in self.nodes:
+            self.__find_shortest_paths(n)
+
+    def __find_shortest_paths(self, starting_node: GraphNode):
+        self.visited, self.current_cost = [], 0
+        for n in self.nodes:
+            n.cost = LARGE
+        current = starting_node
+        current.cost = 0
+
+        done = False
+        while not done:
+            neighbors = self.__get_unvisited_neighbors(current)
+            self.__update_costs_for_neighbors(current, neighbors)
+            self.visited.append(current)
+            if not len(self.visited) == self.num_nodes:
+                current = self.unvisited_nodes[0]
+            else:
+                done = True
+        for n in self.nodes:
+            self.shortest_paths[starting_node.id, n.id] = n.cost
+            self.shortest_paths[n.id, starting_node.id] = n.cost
+
+    def __get_unvisited_neighbors(self, current: GraphNode) -> List[GraphNode]:
+        return [self.get_node(i) for i in current.adj_list if self.get_node(i) not in self.visited]
+
+    def __update_costs_for_neighbors(self, current: GraphNode, neighbors: List[GraphNode]):
+        for neighbor in neighbors:
+            neighbor.cost = min(neighbor.cost,
+                                current.cost + self.edge_costs[current.id, neighbor.id])

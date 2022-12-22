@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import List, Dict, Union
 
-from anytree import AnyNode, PreOrderIter
+from anytree import AnyNode
 
 from utils import read_file
 
@@ -50,6 +50,11 @@ class State(AnyNode):
             {k: 0 for k in Resource}
         self.minutes = minutes
 
+    def __eq__(self, other):
+        return True if self.robots == other.robots and \
+                       self.resources == other.resources and \
+                       self.minutes <= other.minutes else False
+
     def can_afford(self, robot_type: Resource):
         for resource in Resource:
             if self.resources[resource] < self.blueprint.robots[robot_type].get(resource, 0):
@@ -59,18 +64,25 @@ class State(AnyNode):
     def can_use_another(self, resource: Resource):
         return True if self.robots[resource] < self.blueprint.max_robots[resource] else False
 
+    def more_than_enough(self, resource: Resource):
+        return True if self.resources[resource] > (TIME_LIMIT - self.minutes) * self.blueprint.max_robots[resource] \
+            else False
+
     @property
     def actions(self):
         if self.minutes == TIME_LIMIT - 1:
             return [None]
         if self.can_afford(Resource.GEODE):
             return [Resource.GEODE]
+        if self.can_afford(Resource.OBSIDIAN) and self.can_use_another(Resource.OBSIDIAN) and \
+                not self.more_than_enough(Resource.OBSIDIAN):
+            return [Resource.OBSIDIAN]
         actions = []
-        if self.can_afford(Resource.OBSIDIAN) and self.can_use_another(Resource.OBSIDIAN):
-            actions.append(Resource.OBSIDIAN)
-        if self.can_afford(Resource.CLAY) and self.can_use_another(Resource.CLAY):
+        if self.can_afford(Resource.CLAY) and self.can_use_another(Resource.CLAY) and \
+                not self.more_than_enough(Resource.CLAY):
             actions.append(Resource.CLAY)
-        if self.can_afford(Resource.ORE) and self.can_use_another(Resource.ORE):
+        if self.can_afford(Resource.ORE) and self.can_use_another(Resource.ORE) and\
+                not self.more_than_enough(Resource.ORE):
             actions.append(Resource.ORE)
         actions.append(None)
         return actions
@@ -97,19 +109,27 @@ class State(AnyNode):
 class Puzzle:
     def __init__(self, data: List[str]):
         self.blueprints = [Blueprint(line) for line in data if line]
+        self.visited: List[State] = []
+        self.not_visited = 0
 
     def build_tree(self, state: State, max_geodes: int) -> int:
+        self.visited.append(state)
         if state.minutes == TIME_LIMIT:
             print(f'returning with {state.resources[Resource.GEODE]} geodes while max_geodes is {max_geodes}')
             return state.resources[Resource.GEODE]
         if self.__cannot_beat_max(state, max_geodes):
-            print(f'returning early')
+            print(f'returning early {max_geodes}')
             return state.resources[Resource.GEODE]
         else:
             for action in state.actions:
                 new_state = state.get_new_state(action)
-                geodes = self.build_tree(new_state, max_geodes)
-                max_geodes = max(geodes, max_geodes)
+                if new_state not in self.visited:
+                    geodes = self.build_tree(new_state, max_geodes)
+                    max_geodes = max(geodes, max_geodes)
+                else:
+                    self.not_visited += 1
+                    # print(len(self.visited), self.not_visited)
+                    # print('found same state')
             return max_geodes
 
     @staticmethod
@@ -128,7 +148,7 @@ if __name__ == '__main__':
     import datetime
     start = datetime.datetime.now()
     answers = []
-    for blueprint in puzzle.blueprints:
+    for blueprint in [puzzle.blueprints[1]]:
         max_geodes = puzzle.build_tree(State('start', blueprint), 0)
         answers.append(blueprint.id * max_geodes)
     print(f"{datetime.datetime.now() - start}")

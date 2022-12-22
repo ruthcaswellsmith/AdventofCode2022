@@ -57,21 +57,21 @@ class State(AnyNode):
         return True
 
     def can_use_another(self, resource: Resource):
-        return True if self.resources[resource] < self.blueprint.max_robots[resource] - 1 else False
+        return True if self.robots[resource] < self.blueprint.max_robots[resource] else False
 
     @property
     def actions(self):
-        if self.can_afford(Resource.GEODE):
-            return [Resource.GEODE]
         if self.minutes == TIME_LIMIT - 1:
             return [None]
+        if self.can_afford(Resource.GEODE):
+            return [Resource.GEODE]
         actions = []
-        if self.can_afford(Resource.ORE) and self.can_use_another(Resource.ORE):
-            actions.append(Resource.ORE)
-        if self.can_afford(Resource.CLAY) and self.can_use_another(Resource.CLAY):
-            actions.append(Resource.CLAY)
         if self.can_afford(Resource.OBSIDIAN) and self.can_use_another(Resource.OBSIDIAN):
             actions.append(Resource.OBSIDIAN)
+        if self.can_afford(Resource.CLAY) and self.can_use_another(Resource.CLAY):
+            actions.append(Resource.CLAY)
+        if self.can_afford(Resource.ORE) and self.can_use_another(Resource.ORE):
+            actions.append(Resource.ORE)
         actions.append(None)
         return actions
 
@@ -98,41 +98,12 @@ class Puzzle:
     def __init__(self, data: List[str]):
         self.blueprints = [Blueprint(line) for line in data if line]
 
-        # actions = [
-        #     None,
-        #     None,
-        #     Resource.CLAY,
-        #     None,
-        #     Resource.CLAY,
-        #     None,
-        #     Resource.CLAY,
-        #     None,
-        #     None,
-        #     None,
-        #     Resource.OBSIDIAN,
-        #     Resource.CLAY,
-        #     None,
-        #     None,
-        #     Resource.OBSIDIAN,
-        #     None,
-        #     None,
-        #     Resource.GEODE,
-        #     None,
-        #     None,
-        #     Resource.GEODE,
-        #     None,
-        #     None,
-        #     None
-        # ]
-        #
-        # start = State('start', self.blueprints[0])
-        # current_state = start
-        # for action in actions:
-        #     current_state = current_state.get_new_state(action)
-
     def build_tree(self, state: State, max_geodes: int) -> int:
-        if state.minutes == TIME_LIMIT or self.__cannot_beat_max(state, max_geodes):
-            # print(f'returning with {state.resources[Resource.GEODE]} geodes while max_geodes is {max_geodes}')
+        if state.minutes == TIME_LIMIT:
+            print(f'returning with {state.resources[Resource.GEODE]} geodes while max_geodes is {max_geodes}')
+            return state.resources[Resource.GEODE]
+        if self.__cannot_beat_max(state, max_geodes):
+            print(f'returning early')
             return state.resources[Resource.GEODE]
         else:
             for action in state.actions:

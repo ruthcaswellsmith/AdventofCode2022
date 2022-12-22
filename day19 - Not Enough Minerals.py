@@ -1,17 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum, auto
-from typing import List, Dict
+from enum import Enum
+from typing import List, Dict, Union
+
+from anytree import AnyNode, PreOrderIter
 
 from utils import read_file
-
-
-class Action(str, Enum):
-    WAIT = auto()
-    BUY_ORE_ROBOT = auto()
-    BUY_CLAY_ROBOT = auto()
-    BUY_OBSIDIAN_ROBOT = auto()
-    BUY_GEODE_ROBOT = auto()
 
 
 class Resource(str, Enum):
@@ -21,78 +15,84 @@ class Resource(str, Enum):
     GEODE = 'geode'
 
 
-class Robot:
-    def __init__(self, line: str):
-        words = line.split()
-        self.robot_type = Resource(words[1]).name
-        self.costs = {Resource(words[i+1]): int(word) for i, word in enumerate(words) if word.isdigit()}
-
-
 class Blueprint:
     def __init__(self, line: str):
         words = line.split(':')
         self.id = int(words[0][-2:])
-        self.robots = [Robot(word) for word in words[1].split(".") if word]
+        robots = [robot for robot in words[1].split(".") if robot]
+        self.robots = {}
+        for robot in robots:
+            words = robot.split()
+            self.robots[Resource(words[1])] = \
+                {Resource(words[i + 1]): int(word) for i, word in enumerate(words) if word.isdigit()}
+        self.max_robots = {}
+        for resource in Resource:
+            if resource != Resource.GEODE:
+                max_spend = max([self.robots[robot_type].get(resource, 0) for robot_type in Resource])
+                self.max_robots[resource] = max_spend
+        print()
 
 
-class State:
-    def __init__(self, blueprint: Blueprint, robots: Dict[Resource, int], resources: Dict[Resource, int], minutes: int):
+class State(AnyNode):
+    def __init__(self, id: str,
+                 blueprint: Blueprint, robots: Dict[Resource, int], resources: Dict[Resource, int], minutes: int,
+                 parent=None, children=None):
+        super().__init__(id=id, parent=parent, children=children)
         self.blueprint = blueprint
         self.robots = robots
         self.resources = resources
         self.minutes = minutes
 
+    def can_afford(self, robot_type: Resource):
+        for resource in Resource:
+            cost = self.blueprint.robots[robot_type].get(resource, None)
+            if cost and self.resources[resource] < cost:
+                return False
+        return True
+
+    def can_use_another(self, resource: Resource):
+        return True if self.robots[resource] < self.blueprint.max_robots[resource] else False
+
     @property
     def actions(self):
-        actions = [Action.WAIT]
-        if self.buy_ore_robot():
-            actions.append(Action.BUY_ORE_ROBOT)
-        if self.buy_clay_robot():
-            actions.append(Action.BUY_CLAY_ROBOT)
-        if self.buy_obsidian_robot():
-            actions.append(Action.BUY_OBSIDIAN_ROBOT)
-        if self.buy_geode_robot():
-            actions.append(Action.BUY_GEODE_ROBOT)
+        if self.can_afford(Resource.GEODE):
+            return [Resource.GEODE]
+        actions = [None]
+        if self.can_afford(Resource.ORE) and self.can_use_another(Resource.ORE):
+            actions.append(Resource.ORE)
+        if self.can_afford(Resource.CLAY) and self.can_use_another(Resource.CLAY):
+            actions.append(Resource.CLAY)
+        if self.can_afford(Resource.OBSIDIAN) and self.can_use_another(Resource.OBSIDIAN):
+            actions.append(Resource.OBSIDIAN)
         return actions
 
-    def buy_ore_robot(self):
-        return True if self.resources[Resource.ORE] > self.blueprint.robots[Resource.ORE] else False
+    def take_action(self, action: Union[None, Resource]):
+        for robot_type in self.robots:
+            self.resources[robot_type] += self.robots[robot_type]
+        if action:
+            self.robots[action] += 1
+            costs = self.blueprint.robots[action]
+            for key, val in costs.items():
+                self.resources[key] -= val
+        self.minutes += 1
 
-    def buy_clay_robot(self):
-        return True if self.resources[Resource.CLAY] > self.robots[Resource.CLAY] else False
-
-    def buy_obsidian_robot(self):
-        return True if self.resources[Resource.OBSIDIAN] > self.robots[Resource.OBSIDIAN] else False
-
-    def buy_geode_robot(self):
-        return True if self.resources[Resource.GEODE] > self.robots[Resource.GEODE] else False
-
-    def take_action(self, action: Action):
-        self.resources[Resource.ORE] +=
-        if action == Action.BUY_ORE_ROBOT:
-            self.resources[Resource.ORE] -= self.robots[Resource.ORE]
-        if action == Action.BUY_ORE_ROBOT:
-            self.resources[Resource.ORE] -= self.robots[Resource.ORE]
-        if action == Action.BUY_ORE_ROBOT:
-            self.resources[Resource.ORE] -= self.robots[Resource.ORE]
-        if action == Action.BUY_ORE_ROBOT:
-            self.resources[Resource.ORE] -= self.robots[Resource.ORE]
 
 class Puzzle:
     TIME_LIMIT = 24
 
     def __init__(self, data: List[str]):
         self.blueprints = [Blueprint(line) for line in data if line]
-        states = self.process_state(blueprint, [initial_state])
-
-    def process_state(self, blueprint, states):
-        done = False
-        while not done:
-            current_state = previous_states[1]
-            for action in current_state.actions:
-                next_state = self.perform_action(blueprint, state, action)
-                if next_state.time == self.TIME_LIMIT:
-                    done = True
+        print('h')
+    #     states = self.process_state(blueprint, [initial_state])
+    #
+    # def process_state(self, blueprint, states):
+    #     done = False
+    #     while not done:
+    #         current_state = previous_states[1]
+    #         for action in current_state.actions:
+    #             next_state = self.perform_action(blueprint, state, action)
+    #             if next_state.time == self.TIME_LIMIT:
+    #                 done = True
 
 
 

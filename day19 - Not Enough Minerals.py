@@ -7,6 +7,8 @@ from anytree import AnyNode, PreOrderIter
 
 from utils import read_file
 
+TIME_LIMIT = 24
+
 
 class Resource(str, Enum):
     ORE = 'ore'
@@ -30,70 +32,120 @@ class Blueprint:
             if resource != Resource.GEODE:
                 max_spend = max([self.robots[robot_type].get(resource, 0) for robot_type in Resource])
                 self.max_robots[resource] = max_spend
-        print()
 
 
 class State(AnyNode):
     def __init__(self, id: str,
-                 blueprint: Blueprint, robots: Dict[Resource, int], resources: Dict[Resource, int], minutes: int,
-                 parent=None, children=None):
+                 blueprint: Blueprint,
+                 robots: Dict[Resource, int] = None,
+                 resources: Dict[Resource, int] = None,
+                 minutes: int = 0,
+                 parent=None,
+                 children=None):
         super().__init__(id=id, parent=parent, children=children)
         self.blueprint = blueprint
-        self.robots = robots
-        self.resources = resources
+        self.robots = robots if robots else \
+            {Resource.ORE: 1, Resource.CLAY: 0, Resource.OBSIDIAN: 0, Resource.GEODE: 0}
+        self.resources = resources if resources else \
+            {k: 0 for k in Resource}
         self.minutes = minutes
 
     def can_afford(self, robot_type: Resource):
         for resource in Resource:
-            cost = self.blueprint.robots[robot_type].get(resource, None)
-            if cost and self.resources[resource] < cost:
+            if self.resources[resource] < self.blueprint.robots[robot_type].get(resource, 0):
                 return False
         return True
 
     def can_use_another(self, resource: Resource):
-        return True if self.robots[resource] < self.blueprint.max_robots[resource] else False
+        return True if self.resources[resource] < self.blueprint.max_robots[resource] - 1 else False
 
     @property
     def actions(self):
         if self.can_afford(Resource.GEODE):
             return [Resource.GEODE]
-        actions = [None]
+        if self.minutes == TIME_LIMIT - 1:
+            return [None]
+        actions = []
         if self.can_afford(Resource.ORE) and self.can_use_another(Resource.ORE):
             actions.append(Resource.ORE)
         if self.can_afford(Resource.CLAY) and self.can_use_another(Resource.CLAY):
             actions.append(Resource.CLAY)
         if self.can_afford(Resource.OBSIDIAN) and self.can_use_another(Resource.OBSIDIAN):
             actions.append(Resource.OBSIDIAN)
+        actions.append(None)
         return actions
 
-    def take_action(self, action: Union[None, Resource]):
+    def get_new_state(self, action: Union[None, Resource]):
+        new_state = State(
+            f"{self.id}/{'Buy ' if action else 'Wait'}{action if action else ''}",
+            self.blueprint,
+            self.robots.copy(),
+            self.resources.copy(),
+            self.minutes,
+            parent=self)
         for robot_type in self.robots:
-            self.resources[robot_type] += self.robots[robot_type]
+            new_state.resources[robot_type] += new_state.robots[robot_type]
         if action:
-            self.robots[action] += 1
-            costs = self.blueprint.robots[action]
+            new_state.robots[action] += 1
+            costs = new_state.blueprint.robots[action]
             for key, val in costs.items():
-                self.resources[key] -= val
-        self.minutes += 1
+                new_state.resources[key] -= val
+        new_state.minutes += 1
+        return new_state
 
 
 class Puzzle:
-    TIME_LIMIT = 24
-
     def __init__(self, data: List[str]):
         self.blueprints = [Blueprint(line) for line in data if line]
-        print('h')
-    #     states = self.process_state(blueprint, [initial_state])
-    #
-    # def process_state(self, blueprint, states):
-    #     done = False
-    #     while not done:
-    #         current_state = previous_states[1]
-    #         for action in current_state.actions:
-    #             next_state = self.perform_action(blueprint, state, action)
-    #             if next_state.time == self.TIME_LIMIT:
-    #                 done = True
 
+        # actions = [
+        #     None,
+        #     None,
+        #     Resource.CLAY,
+        #     None,
+        #     Resource.CLAY,
+        #     None,
+        #     Resource.CLAY,
+        #     None,
+        #     None,
+        #     None,
+        #     Resource.OBSIDIAN,
+        #     Resource.CLAY,
+        #     None,
+        #     None,
+        #     Resource.OBSIDIAN,
+        #     None,
+        #     None,
+        #     Resource.GEODE,
+        #     None,
+        #     None,
+        #     Resource.GEODE,
+        #     None,
+        #     None,
+        #     None
+        # ]
+        #
+        # start = State('start', self.blueprints[0])
+        # current_state = start
+        # for action in actions:
+        #     current_state = current_state.get_new_state(action)
+
+    def build_tree(self, state: State, max_geodes: int) -> int:
+        if state.minutes == TIME_LIMIT or self.__cannot_beat_max(state, max_geodes):
+            # print(f'returning with {state.resources[Resource.GEODE]} geodes while max_geodes is {max_geodes}')
+            return state.resources[Resource.GEODE]
+        else:
+            for action in state.actions:
+                new_state = state.get_new_state(action)
+                geodes = self.build_tree(new_state, max_geodes)
+                max_geodes = max(geodes, max_geodes)
+            return max_geodes
+
+    def __cannot_beat_max(self, state: State, max_geodes: int):
+        delta_min = TIME_LIMIT - state.minutes
+        potential_geodes =  state.resources[Resource.GEODE] + delta_min * state.robots[Resource.GEODE] + \
+            sum([i for i in range(1, delta_min)])
+        return True if potential_geodes < max_geodes else False
 
 
 if __name__ == '__main__':
@@ -101,4 +153,9 @@ if __name__ == '__main__':
     data = read_file(filename)
 
     puzzle = Puzzle(data)
+    blueprint = puzzle.blueprints[0]
+    import datetime
+    start = datetime.datetime.now()
+    puzzle.build_tree(State('start', blueprint), 0)
+    print(f"{datetime.datetime.now() - start}")
     print(f'The answer to Part 1 is')

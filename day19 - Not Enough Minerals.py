@@ -141,11 +141,12 @@ class Puzzle:
                 max_geodes = max(geodes, max_geodes)
             return max_geodes
 
-    def __cannot_beat_max(self, state: State, max_geodes: int):
+    @staticmethod
+    def __cannot_beat_max(state: State, max_geodes: int):
         delta_min = TIME_LIMIT - state.minutes
-        potential_geodes =  state.resources[Resource.GEODE] + delta_min * state.robots[Resource.GEODE] + \
+        potential_geodes = state.resources[Resource.GEODE] + delta_min * state.robots[Resource.GEODE] + \
             sum([i for i in range(1, delta_min)])
-        return True if potential_geodes < max_geodes else False
+        return True if potential_geodes <= max_geodes else False
 
 
 if __name__ == '__main__':
@@ -153,9 +154,11 @@ if __name__ == '__main__':
     data = read_file(filename)
 
     puzzle = Puzzle(data)
-    blueprint = puzzle.blueprints[0]
     import datetime
     start = datetime.datetime.now()
-    puzzle.build_tree(State('start', blueprint), 0)
+    answers = []
+    for blueprint in puzzle.blueprints:
+        max_geodes = puzzle.build_tree(State('start', blueprint), 0)
+        answers.append(blueprint.id * max_geodes)
     print(f"{datetime.datetime.now() - start}")
     print(f'The answer to Part 1 is')

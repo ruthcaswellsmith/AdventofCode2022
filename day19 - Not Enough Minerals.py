@@ -115,10 +115,10 @@ class Puzzle:
     def build_tree(self, state: State, max_geodes: int) -> int:
         self.visited.append(state)
         if state.minutes == TIME_LIMIT:
-            print(f'returning with {state.resources[Resource.GEODE]} geodes while max_geodes is {max_geodes}')
+            # print(f'returning with {state.resources[Resource.GEODE]} geodes while max_geodes is {max_geodes}')
             return state.resources[Resource.GEODE]
         if self.__cannot_beat_max(state, max_geodes):
-            print(f'returning early {max_geodes}')
+            # print(f'returning early {max_geodes}')
             return state.resources[Resource.GEODE]
         else:
             for action in state.actions:
@@ -135,21 +135,25 @@ class Puzzle:
     @staticmethod
     def __cannot_beat_max(state: State, max_geodes: int):
         delta_min = TIME_LIMIT - state.minutes
+        diff = sum([v - state.robots[k] for k, v in state.blueprint.robots[Resource.GEODE].items()])
+        # delta_min = delta_min - diff
         potential_geodes = state.resources[Resource.GEODE] + delta_min * state.robots[Resource.GEODE] + \
             sum([i for i in range(1, delta_min)])
         return True if potential_geodes <= max_geodes else False
 
 
 if __name__ == '__main__':
-    filename = 'input/test.txt'
+    filename = 'input/day19.txt'
     data = read_file(filename)
 
     puzzle = Puzzle(data)
     import datetime
-    start = datetime.datetime.now()
     answers = []
-    for blueprint in [puzzle.blueprints[1]]:
+    for i, blueprint in enumerate(puzzle.blueprints):
+        puzzle = Puzzle(data)
+        print(f'processing blueprint {blueprint.id}')
+        start = datetime.datetime.now()
         max_geodes = puzzle.build_tree(State('start', blueprint), 0)
         answers.append(blueprint.id * max_geodes)
-    print(f"{datetime.datetime.now() - start}")
-    print(f'The answer to Part 1 is')
+        print(f"{datetime.datetime.now() - start}")
+    print(f'The answer to part 1 is {sum(answers)}')

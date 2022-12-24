@@ -32,26 +32,65 @@ class Direction(str, Enum):
     DOWN = auto()
 
 
+# class Node:
+#     def __init__(self, id: int, value: T):
+#         self.id = id
+#         self.value = value
+#         self.next = None
+#
+#
+# class CircularLinkedList:
+#     def __init__(self, elements: Union[str, List[T]]):
+#         self.nodes = [Node(i, ele) for i, ele in enumerate(elements)]
+#         self.head = self.nodes[0]
+#         self.current = self.head
+#         for i in range(len(self.nodes)):
+#             self.current.next = self.nodes[i + 1] if i < len(self.nodes) - 1 else self.head
+#             self.current = self.current.next
+#
+#     def get_next(self):
+#         val = self.current.value
+#         self.current = self.current.next
+#         return val
+#
+#
 class Node:
     def __init__(self, id: int, value: T):
         self.id = id
         self.value = value
         self.next = None
+        self.previous = None
 
 
 class CircularLinkedList:
     def __init__(self, elements: Union[str, List[T]]):
         self.nodes = [Node(i, ele) for i, ele in enumerate(elements)]
         self.head = self.nodes[0]
+        self.tail = self.nodes[len(self.nodes) - 1]
         self.current = self.head
         for i in range(len(self.nodes)):
             self.current.next = self.nodes[i + 1] if i < len(self.nodes) - 1 else self.head
             self.current = self.current.next
+        self.current = self.tail
+        for i in range(len(self.nodes) - 1, -1, -1):
+            self.current.previous = self.nodes[i - 1] if i > 0 else self.tail
+            self.current = self.current.previous
+        self.current = self.head
 
-    def get_next(self):
+    def pop(self):
         val = self.current.value
         self.current = self.current.next
         return val
+
+    def get_node(self, num: int):
+        if num == 0:
+            return self.current
+        current = self.current
+        for _ in range(abs(num)):
+            self.current = self.current.next if num > 0 else self.current.previous
+        node = self.current
+        self.current = current
+        return node
 
 
 @total_ordering

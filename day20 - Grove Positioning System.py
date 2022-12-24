@@ -2,17 +2,25 @@ from __future__ import annotations
 
 from typing import List
 
-from utils import read_file, CircularLinkedList, Node
+from utils import read_file, CircularLinkedList, Node, Part
 
 
 class File:
-    def __init__(self, data: List[str]):
-        self.linked_list = CircularLinkedList([int(data[i]) for i in range(len(data))])
+    DECRYPTION_KEY = 811589153
+
+    def __init__(self, data: List[str], part: Part):
+        if part == Part.PT1:
+            self.linked_list = CircularLinkedList([int(data[i]) for i in range(len(data))])
+        else:
+            self.linked_list = CircularLinkedList([self.DECRYPTION_KEY * int(data[i]) for i in range(len(data))])
         self.zero = next(iter([node for node in self.linked_list.nodes if node.value == 0]), None)
-        self.length = len(self.linked_list.nodes)
 
     @property
-    def answer_pt1(self):
+    def length(self):
+        return len(self.linked_list.nodes)
+
+    @property
+    def answer(self):
         nums = []
         for num in [1000, 2000, 3000]:
             self.linked_list.current = self.zero
@@ -22,36 +30,20 @@ class File:
     def mix(self):
         for node in self.linked_list.nodes:
             self.move_node(node)
-            # current = self.linked_list.head
-            # print(f"Moving Node {node.value}")
-            # l = []
-            # for i in range(len(self.linked_list.nodes)):
-            #     l.append(current.value)
-            #     current = current.next
-            # print(l)
-            # print('now in reverse')
-            # l = []
-            # current = self.linked_list.head
-            # for i in range(len(self.linked_list.nodes)):
-            #     l.append(current.value)
-            #     current = current.previous
-            # print(l)
 
     def move_node(self, node: Node):
         if node.value == 0:
             return
 
         self.linked_list.current = self.linked_list.nodes[node.id]
+        pre_node = self.linked_list.get_node(node.value % (self.length - 1))
+        post_node = pre_node.next
         if node.value > 0:
-            pre_node = self.linked_list.get_node(node.value)
-            post_node = pre_node.next
             node.previous.next = node.next
             post_node.previous = node
             pre_node.next = node
             node.next.previous = node.previous
         else:
-            post_node = self.linked_list.get_node(node.value)
-            pre_node = post_node.previous
             node.next.previous = node.previous
             pre_node.next = node
             post_node.previous = node
@@ -64,8 +56,12 @@ if __name__ == '__main__':
     filename = 'input/day20.txt'
     data = read_file(filename)
 
-    file = File(data)
+    file = File(data, Part.PT1)
     file.mix()
-    print(f'The answer to Pt 1 is {file.answer_pt1}')
+    print(f'The answer to Pt 1 is {file.answer}')
 
-    # Guessed 4207.  Too low.
+    file = File(data, Part.PT2)
+    for _ in range(10):
+        file.mix()
+    print(f'The answer to Pt 2 is {file.answer}')
+

@@ -33,6 +33,17 @@ class Direction(str, Enum):
     DOWN = auto()
 
 
+class MapDirection(str, Enum):
+    NORTH = 'N'
+    SOUTH = 'S'
+    EAST = 'E'
+    WEST = 'W'
+    NORTHEAST = 'NE'
+    NORTHWEST = 'NW'
+    SOUTHEAST = 'SE'
+    SOUTHWEST = 'SW'
+
+
 class Operator(str, Enum):
     ADD = '+'
     SUBTRACT = '-'

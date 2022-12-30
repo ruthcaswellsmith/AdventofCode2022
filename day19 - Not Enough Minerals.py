@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Dict, Union
 from math import ceil
+import numpy as np
+from typing import List, Dict
+from queue import Queue
+import json
 
-from anytree import AnyNode
-
-from utils import read_file
-
-TIME_LIMIT = 24
+from utils import read_file, Part
 
 
 class Resource(str, Enum):
@@ -35,20 +34,17 @@ class Blueprint:
                 self.max_robots[resource] = max_spend
 
 
-class State(AnyNode):
-    def __init__(self, id: str,
-                 blueprint: Blueprint,
+class State:
+    def __init__(self, blueprint: Blueprint,
+                 time_limit: int,
                  robots: Dict[Resource, int] = None,
                  resources: Dict[Resource, int] = None,
-                 minutes: int = 0,
-                 parent=None,
-                 children=None):
-        super().__init__(id=id, parent=parent, children=children)
+                 minutes: int = 0):
         self.blueprint = blueprint
+        self.time_limit = time_limit
         self.robots = robots if robots else \
             {Resource.ORE: 1, Resource.CLAY: 0, Resource.OBSIDIAN: 0, Resource.GEODE: 0}
-        self.resources = resources if resources else \
-            {k: 0 for k in Resource}
+        self.resources = resources if resources else {k: 0 for k in Resource}
         self.minutes = minutes
 
     def __eq__(self, other):
@@ -57,14 +53,23 @@ class State(AnyNode):
                        self.minutes <= other.minutes else False
 
     @property
+    def identifier(self):
+        return f"{json.dumps(self.robots)}-{json.dumps(self.resources)}-{self.minutes}"
+
+    @property
+    def geodes(self):
+        return self.resources[Resource.GEODE]
+
+    @property
     def robots_to_buy(self):
-        return [robot for robot in Resource if self.can_use_another(robot) and self.can_wait_for(robot)]
+        return [robot for robot in Resource if self.can_use_another(robot) and self.can_wait_for(robot) \
+                and self.min_to_wait(robot) <= self.time_limit - 1 - self.minutes]
 
     def min_to_wait(self, robot_type: Resource):
         min_to_wait = []
         for resource in self.blueprint.robots[robot_type].keys():
             needed = max(self.blueprint.robots[robot_type][resource] - self.resources[resource], 0)
-            min_to_wait.append(ceil(needed / self.robots[resource]) if needed > 0 else 1)
+            min_to_wait.append(ceil(needed / self.robots[resource]) if needed > 0 else 0)
         return max(min_to_wait)
 
     def can_wait_for(self, robot_type: Resource):
@@ -72,89 +77,94 @@ class State(AnyNode):
             else False
 
     def can_use_another(self, robot_type: Resource):
-        return True if robot_type == Resource.GEODE or \
-            self.robots[robot_type] < self.blueprint.max_robots[robot_type] else False
+        if robot_type == Resource.GEODE:
+            return True
+        delta = self.time_limit - self.minutes
+        if self.resources[robot_type] + delta * self.robots[robot_type] >= delta * self.blueprint.max_robots[robot_type]:
+            return False
+        if self.robots[robot_type] == self.blueprint.max_robots[robot_type]:
+            return False
+        return True
+
+    def get_end_state(self):
+        time_to_end = self.time_limit - self.minutes
+        end_state = State(
+            self.blueprint,
+            self.time_limit,
+            self.robots,
+            {k: v + time_to_end*self.robots[k] for k, v in self.resources.items()},
+            self.minutes + time_to_end)
+        return end_state
 
     def get_new_state(self, robot_type: Resource):
         delta_min = self.min_to_wait(robot_type)
         new_state = State(
-            f"{self.id}/{robot_type}",
             self.blueprint,
+            self.time_limit,
             {k: v + (1 if k == robot_type else 0) for k, v in self.robots.items()},
             {k: v + (delta_min + 1)*self.robots[k] - self.blueprint.robots[robot_type].get(k, 0) \
                 for k, v in self.resources.items()},
-            self.minutes + delta_min + 1,
-            parent=self)
+            self.minutes + delta_min + 1)
         return new_state
+
+    def can_beat_max(self, max_geodes: int):
+        delta_min = self.time_limit - self.minutes
+        # diff = sum([v - state.robots[k] for k, v in state.blueprint.robots[Resource.GEODE].items()])
+        # delta_min = delta_min - diff
+        potential_geodes = self.resources[Resource.GEODE] + delta_min * self.robots[Resource.GEODE] + \
+            sum([i for i in range(1, delta_min)])
+        return True if potential_geodes > max_geodes else False
 
 
 class Puzzle:
-    def __init__(self, data: List[str]):
+    def __init__(self, data: List[str], part: Part):
         self.blueprints = [Blueprint(line) for line in data if line]
-        self.visited: List[State] = []
-        self.not_visited = 0
+        if part == Part.PT2:
+            self.blueprints = [b for i, b in enumerate(self.blueprints) if i < 3]
+        self.visited = {}
+        self.queue = Queue()
+        self.max_geodes = []
 
-    def build_tree(self, state: State, max_geodes: int) -> int:
-        self.visited.append(state)
-        print(f'{state.minutes}')
-        print(f'entering {state.robots.items()} {state.resources.items()}')
-        if state.minutes == TIME_LIMIT - 1:
-            print(f'hit time limit {state.resources[Resource.GEODE]} geodes while max_geodes is {max_geodes}')
-            return state.resources[Resource.GEODE] + state.robots[Resource.GEODE]
-        if self.__cannot_beat_max(state, max_geodes):
-            print(f'returning early {max_geodes}')
-            return state.resources[Resource.GEODE]
-        else:
-            for robot in state.robots_to_buy:
-                # print(state.robots_to_buy)
-                new_state = state.get_new_state(robot)
-                if new_state not in self.visited:
-                    geodes = self.build_tree(new_state, max_geodes)
-                    max_geodes = max(geodes, max_geodes)
-                else:
-                    self.not_visited += 1
-                    # print('found same state', len(self.visited), self.not_visited)
-            return max_geodes
+    def process(self, time_limit: int):
+        for i in range(len(self.blueprints)):
+            state = State(self.blueprints[i], time_limit)
+            self.visited = {}
+            self.queue = Queue()
+            self.max_geodes.append(self.bfs(state))
 
-    @staticmethod
-    def __cannot_beat_max(state: State, max_geodes: int):
-        delta_min = TIME_LIMIT - state.minutes
-        # diff = sum([v - state.robots[k] for k, v in state.blueprint.robots[Resource.GEODE].items()])
-        # delta_min = delta_min - diff
-        potential_geodes = state.resources[Resource.GEODE] + delta_min * state.robots[Resource.GEODE] + \
-            sum([i for i in range(1, delta_min)])
-        return True if potential_geodes <= max_geodes else False
+    @property
+    def answer_pt1(self):
+        return sum([(i+1) * v for i, v in enumerate(self.max_geodes)])
+
+    @property
+    def answer_pt2(self):
+        return np.prod([v for v in self.max_geodes])
+
+    def bfs(self, state: State):
+        self.queue.put(state)
+        max_geodes = 0
+
+        while self.queue.qsize() > 0:
+            state = self.queue.get()
+            end_state = state.get_end_state()
+            max_geodes = max(max_geodes, end_state.geodes)
+            for robot_type in state.robots_to_buy:
+                neighbor = state.get_new_state(robot_type)
+                if neighbor.can_beat_max(max_geodes):
+                    if neighbor.identifier not in self.visited:
+                        self.queue.put(neighbor)
+                        self.visited[neighbor.identifier] = neighbor.geodes
+        return max_geodes
 
 
 if __name__ == '__main__':
-    filename = 'input/test.txt'
+    filename = 'input/day19.txt'
     data = read_file(filename)
 
-    puzzle = Puzzle(data)
-    import datetime
-    # answers = []
-    # for i, blueprint in enumerate(puzzle.blueprints):
-    #     puzzle = Puzzle(data)
-    #     print(f'processing blueprint {blueprint.id}')
-    #     start = datetime.datetime.now()
-    #     max_geodes = puzzle.build_tree(State('start', blueprint), 0)
-    #     answers.append(blueprint.id * max_geodes)
-    #     print(f"{datetime.datetime.now() - start}")
-    # print(f'The answer to part 1 is {sum(answers)}')
+    puzzle = Puzzle(data, Part.PT1)
+    puzzle.process(24)
+    print(f"The answer to Part 1 is {puzzle.answer_pt1}")
 
-    buys = [Resource.CLAY,
-            Resource.CLAY,
-            Resource.CLAY,
-            Resource.OBSIDIAN,
-            Resource.CLAY,
-            Resource.OBSIDIAN,
-            Resource.GEODE,
-            Resource.GEODE]
-
-    state = State('start', puzzle.blueprints[0])
-    states = []
-    for buy in buys:
-        states.append(state)
-        new_state = state.get_new_state(buy)
-        state = new_state
-    print("h")
+    puzzle = Puzzle(data, Part.PT2)
+    puzzle.process(32)
+    print(f"The answer to Part 2 is {puzzle.answer_pt2}")

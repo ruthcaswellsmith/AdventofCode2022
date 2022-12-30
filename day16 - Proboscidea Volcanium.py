@@ -75,7 +75,7 @@ class Tunnels:
 
 
 if __name__ == '__main__':
-    filename = 'input/test16.txt'
+    filename = 'input/day16.txt'
     data = read_file(filename)
 
     tunnels = Tunnels(data)
